@@ -1,6 +1,6 @@
 'use strict'
 
-// TODO: deburr object keys
+// TODO: fetch next page based on metas instead of hard-coded number of pages
 
 // core
 const { readFileSync } = require('fs')
@@ -10,12 +10,10 @@ const got = require('got')
 const cheerio = require('cheerio')
 const pMap = require('p-map')
 const delay = require('delay')
+const deburr = require('lodash.deburr')
+const camel = require('lodash.camelcase')
 
-/*
-const oy = got.extend({
-  baseUrl: 'https://www.spca.com/services/animaux-trouves/chats-trouves/'
-})
-*/
+const DELAY = 300
 
 const pageRecords = (cnt) => cheerio.load(cnt)('a.card--link')
   .map(function () { return this.attribs.href })
@@ -24,18 +22,9 @@ const pageRecords = (cnt) => cheerio.load(cnt)('a.card--link')
 const run = async (p) => {
   console.error('Page', p)
   const { url, body } = await got(`https://www.spca.com/services/animaux-trouves/chats-trouves/page/${p}`)
-  console.error('url:', url, body.length)
-  await delay(2)
+  await delay(DELAY)
   return pageRecords(body)
 }
-
-// const data = require('./cats.json').reduce((a, b) => a.concat(b), [])
-
-/*
-// console.log(data.join(', '))
-got(data[0])
-  .then(( { body }) => console.log(body))
-*/
 
 const one = (c) => {
   const $ = cheerio.load(c)
@@ -44,7 +33,7 @@ const one = (c) => {
       return (this.attribs.src !== 'http://g.petango.com/shared/Photo-Not-Available-cat.gif') && this.attribs.src
     })
     .get()
-    .filter((x) => !x.indexOf('http'))
+    .filter((x) => x && !x.indexOf('http'))
 
   const name = $('div.pet-single-column > h2').text()
 
@@ -57,74 +46,43 @@ const one = (c) => {
     .get()
 
   const g3 = { name }
+  if (imgs && imgs.length) {
+    g3.imgs = imgs
+  }
   let r
-  // FIXME: deburr object keys
   for (r = 0; r < g2.length; r += 2) {
-    g3[g2[r]] = g2[r + 1]
+    g3[camel(deburr(g2[r]))] = g2[r + 1]
   }
 
-  if (g3.Âge) {
-    g3.Âge = parseInt(g3.Âge, 10)
-    if (!g3.Âge) { delete g3.Âge }
+  if (g3.age) {
+    g3.age = parseInt(g3.age, 10)
+    if (!g3.age) { delete g3.age }
   }
 
-  return {
-    imgs,
-    g3
+  if (g3.name === g3['noDeReference']) {
+    delete g3.name
   }
+
+  return g3
 }
 
 const catMapper = async (x) => {
   console.error(new Date().toISOString(), x)
-  const { body } = await got(x)
-  await delay(3)
-  return {
+  const { url, body } = await got(x)
+  await delay(DELAY)
+  return url === x && {
     ...one(body),
-    url: x
+    url
   }
 }
-// const data77 = ['https://www.spca.com/trouvee/dory-cat-39798281/']
 
-/*
-mapper(data[1])
-  .then(console.log)
-  .catch(console.error)
-*/
-
-/*
-const cat0 = readFileSync('cat-0.html', 'utf-8')
-const tada = one(cat0)
-console.log(JSON.stringify(tada, null, '  '))
-*/
-
-/*
-run()
-  .then(console.log)
-  .catch(console.error)
-*/
-
-/*
-const u = pageRecords(readFileSync('outs.txt', 'utf-8'))
-console.log(u)
-*/
-
-/*
-const range = Array(23).fill().map((x, i) => `${i + 1}`)
-
-Promise.all(range.map(run))
-  .then((x) => console.log(JSON.stringify(x)))
-  .catch(console.error)
-*/
-
+// FIXME: next page
 const wholeThing = async () => {
-  // const range = Array(23).fill().map((x, i) => `${i + 1}`)
   const range = Array(23).fill().map((x, i) => i + 1)
-  // const glm = await Promise.all(range.map(run))
   const glm = await pMap(range, run, { concurrency: 2 })
-  const data99 = glm.reduce((a, b) => a.concat(b), [])
-  const x = await pMap(data99, catMapper, { concurrency: 3 })
-  console.log(JSON.stringify(x))
+  return pMap(glm.reduce((a, b) => a.concat(b), []), catMapper, { concurrency: 3 })
 }
 
 wholeThing()
+  .then((x) => console.log(JSON.stringify(x.filter(Boolean), null, '  ')))
   .catch(console.error)
