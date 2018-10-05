@@ -7,6 +7,8 @@
     "cheerio": "^1.0.0-rc.2",
     "delay": "^4.0.1",
     "got": "^9.2.2",
+    "lodash.camelcase": "^4.3.0",
+    "lodash.deburr": "^4.1.0",
     "p-map": "^2.0.0"
   }
 }
