@@ -1,0 +1,13 @@
+.cache
+node_modules
+public
+yarn-error.log
+a-cat.json
+all-cats.json
+all-cats-v2.json
+all-cats-v3.json
+all-cats-v4.json
+cats.json
+t1.json
+outs.txt
+cat-0.html
