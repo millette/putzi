@@ -78,7 +78,7 @@ const catMapper = async (x) => {
 
 // FIXME: next page
 const wholeThing = async () => {
-  const range = Array(24).fill().map((x, i) => i + 1)
+  const range = Array(23).fill().map((x, i) => i + 1)
   const glm = await pMap(range, run, { concurrency: 2 })
   return pMap(glm.reduce((a, b) => a.concat(b), []), catMapper, { concurrency: 3 })
 }
